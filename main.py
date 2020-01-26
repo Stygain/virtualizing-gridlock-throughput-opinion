@@ -25,16 +25,13 @@ def setupNetwork(network, cmd='python -m SimpleHTTPServer 80 &'):
 
 	info("*** Waiting for http servers to start\n")
 
-	#for httpClient in httpClients:
-	#	for httpHost in httpHosts:
-	#		waitListening(client=httpClient, server=httpHost, port=80, timeout=5)
-
-	for httpHost in httpHosts:
-		waitListening(client=network['h1'], server=httpHost, port=80, timeout=5)
+	for httpClient in httpClients:
+		for httpHost in httpHosts:
+			waitListening(client=httpClient, server=httpHost, port=80, timeout=5)
 
 	info( "\n*** Hosts are running http at the following addresses:\n" )
 	for httpHost in httpHosts:
-		info(host.name, host.IP(), '\n')
+		info(httpHost.name, httpHost.IP(), '\n')
 	info("\n*** Type 'exit' or control-D to shut down network\n")
 
 def simpleTest():
