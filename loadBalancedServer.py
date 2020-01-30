@@ -6,12 +6,14 @@ import json
 import time
 
 # Main thread keeps a socket open and appends to the list
-LOCALHOST = "127.0.0.1"
+#LOCALHOST = "127.0.0.1"
+LOCALHOST = ""
 LB_PORT = 4000
 CLIENT_PORT = 4001
 ALLOWED_CLIENTS = 5
 
 mutex = threading.Lock()
+clientSendMutex = threading.Lock()
 
 clients = 0
 
@@ -24,9 +26,12 @@ class LoadBalancerCommThread(threading.Thread):
     self.threadSafePrint("Server started on " + str(LOCALHOST) + ":" + str(LB_PORT))
 
   def threadSafePrint(self, msg):
-    mutex.acquire()
-    print(msg)
-    mutex.release()
+    print(msg, flush=True)
+    #mutex.acquire()
+    #try:
+    #  print(msg, flush=True)
+    #finally:
+    #  mutex.release()
 
   def run(self):
     global clients
@@ -36,18 +41,28 @@ class LoadBalancerCommThread(threading.Thread):
     self.threadSafePrint("New connection added to load balancer: " + str(self.clientAddr))
     while (True):
       dataDecode = self.clientSock.recv(2048).decode()
+      self.threadSafePrint("Received: " + str(dataDecode))
       #print("Received: " + dataDecode)
 
       # Check that the message is a request for load?
-      mutex.acquire()
-      try:
-        # send back information about the number of clients currently being serviced
-        loadMsg = '{ \
-                     "load": ' + str(clients) + ' \
-                   }'
-        self.clientSock.send(bytes(loadMsg, 'UTF-8'))
-      finally:
-        mutex.release()
+      #self.threadSafePrint("Received: " + str(dataDecode))
+      #mutex.acquire()
+      #try:
+      #  # send back information about the number of clients currently being serviced
+      #  loadMsg = '{ \
+      #               "load": ' + str(clients) + ' \
+      #             }'
+      #  self.clientSock.send(bytes(loadMsg, 'UTF-8'))
+      #  self.threadSafePrint("Sent: " + str(loadMsg))
+      #finally:
+      #  mutex.release()
+
+      # send back information about the number of clients currently being serviced
+      loadMsg = '{ \
+                   "load": ' + str(clients) + ' \
+                 }'
+      self.clientSock.send(bytes(loadMsg, 'UTF-8'))
+      self.threadSafePrint("Sent: " + str(loadMsg))
 
 class ClientCommThread(threading.Thread):
   def __init__(self):
@@ -58,9 +73,12 @@ class ClientCommThread(threading.Thread):
     self.threadSafePrint("Server started on " + str(LOCALHOST) + ":" + str(CLIENT_PORT))
 
   def threadSafePrint(self, msg):
-    mutex.acquire()
-    print(msg)
-    mutex.release()
+    print(msg, flush=True)
+    #mutex.acquire()
+    #try:
+    #  print(msg, flush=True)
+    #finally:
+    #  mutex.release()
 
   def handleClient(self, client): # Threaded function
     while (True):
@@ -68,9 +86,11 @@ class ClientCommThread(threading.Thread):
       if not data:
         self.threadSafePrint('Closing connection to client')
         break
-      mutex.acquire()
-      client.send(data) # Echo data back to client
-      mutex.release()
+      clientSendMutex.acquire()
+      try:
+        client.send(data) # Echo data back to client
+      finally:
+        clientSendMutex.release()
     client.close()
 
   def run(self):
@@ -94,4 +114,3 @@ lbComm.start()
 
 cComm = ClientCommThread()
 cComm.start()
-

@@ -16,22 +16,12 @@ lbServerMutex = Lock()
 loadThreads = []
 
 
-#@dataclass
-#class LB_Server:
-#  ip: str
-#  port: int
-#  load: int
 class LB_Server:
   def __init__(self, ip, port, load):
     self.ip = ip
     self.port = port
     self.load = load
 
-#@dataclass
-#class Client:
-#  priority: int
-#  message: str
-#  thread: Thread
 class Client:
   def __init__(self, priority, message, thread):
     self.priority = priority
@@ -66,8 +56,8 @@ def determineLowestPriority():
       success = True
   return (c, success)
 
-# Spawn thread that monitors the list
-class ListThread(Thread):
+# Spawn thread that monitors the queue
+class QueueThread(Thread):
   def run(self):
     while (True):
       if (True): # if I have open hosts
@@ -76,10 +66,10 @@ class ListThread(Thread):
           (client, success1) = determineLowestPriority()
           (lbServer, success2) = determineLowestLoad()
           if (success1 and success2):
-            print("LOWEST PRIORITY")
-            print(client)
-            print("LOWEST LOAD")
-            print(lbServer)
+            #print("LOWEST PRIORITY")
+            #print(client)
+            #print("LOWEST LOAD")
+            #print(lbServer)
             client.thread.redirAddr = lbServer.ip
             client.thread.redir = True
             queue.remove(client)
@@ -88,7 +78,7 @@ class ListThread(Thread):
       time.sleep(0.2)
 
 
-# Spawn thread that monitors the list
+# Spawn thread that monitors the load of an individual server
 class LoadThread(Thread):
   def __init__(self, address, commPort):
     Thread.__init__(self)
@@ -101,14 +91,16 @@ class LoadThread(Thread):
     self.commSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     self.commSock.connect((self.address, self.commPort))
     while (True):
+      print("Going to ask for load values", flush=True)
       connectMsg = '{ \
                       "message": "Hey I need your load values" \
                     }'
       self.commSock.sendall(bytes(connectMsg, 'UTF-8'))
+      print("Waiting for response", flush=True)
       dataRecv = self.commSock.recv(1024).decode()
 
       dataRecvJson = json.loads(dataRecv)
-      print("Received: %s" % (dataRecvJson))
+      print("Received: %s" % (dataRecvJson), flush=True)
 
       self.load = dataRecvJson['load']
 
@@ -119,14 +111,14 @@ class LoadThread(Thread):
 
 def strToClient(message, thread):
   messageJson = json.loads(message)
-  print("message json")
-  print(messageJson)
+  print("message json", flush=True)
+  print(messageJson, flush=True)
   return Client(messageJson["priority"], messageJson["message"], thread)
 
 def printClient(m):
-  print("(%d) %s;" % (m.priority, m.message), end='')
-  print(" Thread: ", end='')
-  print(m.thread)
+  print("(%d) %s;" % (m.priority, m.message), end='', flush=True)
+  print(" Thread: ", end='', flush=True)
+  print(m.thread, flush=True)
 
 # Thread for each connection
 class ClientThread(Thread):
@@ -136,14 +128,15 @@ class ClientThread(Thread):
     self.redirAddr = ""
     self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    LOCALHOST=""
     self.sock.bind((LOCALHOST, port))
-    print("Server started on %s:%d" % (LOCALHOST, port))
+    print("Server started on %s:%d" % (LOCALHOST, port), flush=True)
 
   def run(self):
-    print("Waiting for a connection on clientthread")
+    print("Waiting for a connection on clientthread", flush=True)
     self.sock.listen(1)
     self.clientSock, self.clientAddr = self.sock.accept()
-    print("New connection added: ", self.clientAddr)
+    print("New connection added: ", self.clientAddr, flush=True)
 
     #dataRecv = self.clientSock.recv(2048)
     #dataDecode = dataRecv.decode()
@@ -169,19 +162,21 @@ class ClientThread(Thread):
 
 
 # Main thread keeps a socket open and appends to the list
-LOCALHOST = "127.0.0.1"
-PORT = 8080
+#LOCALHOST = "127.0.0.1"
+LOCALHOST = ""
+PORT = 4000
+print("before", flush=True)
 reqSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 reqSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 reqSocket.bind((LOCALHOST, PORT))
-print("Server started on %s:%d" % (LOCALHOST, PORT))
-print("Waiting for connections...")
+print("Server started on %s:%d" % (LOCALHOST, PORT), flush=True)
+print("Waiting for connections...", flush=True)
 
-listThread = ListThread()
-listThread.start()
+queueThread = QueueThread()
+queueThread.start()
 
 # Spawn a LoadThread for each connected loadBalancedServer.py
-loadThread = LoadThread('127.0.0.1', 4000)
+loadThread = LoadThread('10.0.0.2', 4000)
 loadThread.start()
 loadThreads.append(loadThread)
 
@@ -201,12 +196,12 @@ while (True):
                     }'
   origPort = origPort + 1
   clientSock.send(bytes(successMessage, 'UTF-8'))
-  print("Adding client to queue")
+  print("Adding client to queue", flush=True)
   queueMutex.acquire()
   try:
     queue.append(client)
-    print("Queue now")
-    print(queue)
+    print("Queue now", flush=True)
+    print(queue, flush=True)
   finally:
     queueMutex.release()
 

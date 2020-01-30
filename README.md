@@ -1,5 +1,5 @@
 Virtualizing Gridlock Throughput Opinion  
   
-To run: `sudo python ./main.py`  
+To run: `sudo python ./mininetMain.py`  
   
 To clean: `sudo mn -c`

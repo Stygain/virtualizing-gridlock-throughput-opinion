@@ -1,45 +1,63 @@
 from mininet.topo import Topo
 from mininet.net import Mininet
+from mininet.node import Controller
 from mininet.util import dumpNodeConnections
 from mininet.log import setLogLevel
 from mininet.log import lg, info
 from mininet.util import waitListening
 
+import time
+
 from loadBalancerTopology import lbTopology
 
 def setupNetwork(network):
-	serverCmd = 'python -m SimpleHTTPServer 80 &'
-	clientCmd = 'curl 10.0.0.2 > tmpFile'
+	loadBalancerCmd = 'python3 loadBalancer.py > lb.txt 2>&1 &'
+	serverCmd = 'python3 loadBalancedServer.py > lbserv.txt 2>&1 &'
 
 	switch = network['s1']
 
-	httpHosts = []
-	for host in network.hosts:
-		if (host.name[:1] == 'h'):
-			httpHosts.append(host)
+	loadBalancer = network['lbh']
+	info( "\n\n*** Load Balancer:\n" )
+	info(loadBalancer.name, loadBalancer.IP(), '\n')
 	
-	httpClients = []
-	for host in network.hosts:
-		if (host.name[:1] == 'c'):
-			httpClients.append(host)
+
+	lbServers = []
+	for netHost in network.hosts:
+		if (netHost.name[:6] == 'server'):
+			info( "\n\n*** SERVER:\n" )
+			info(netHost.name, netHost.IP(), '\n')
+			lbServers.append(netHost)
 	
-	for httpHost in httpHosts:
-		httpHost.cmd(serverCmd)
+	clients = []
+	for netHost in network.hosts:
+		if (netHost.name[:6] == 'client'):
+			info( "\n\n*** CLIENT:\n" )
+			info(netHost.name, netHost.IP(), '\n')
+			clients.append(netHost)
+	
+	info( "\n\n*** Starting up servers\n" )
+	for lbServer in lbServers:
+		lbServer.cmd(serverCmd)
 
-	info("*** Waiting for http servers to start\n")
+	info( "\n\n*** Starting up load balancer\n" )
+	loadBalancer.cmd(loadBalancerCmd)
 
-	for httpClient in httpClients:
-		for httpHost in httpHosts:
-			waitListening(client=httpClient, server=httpHost, port=80, timeout=5)
+	#info("*** Waiting for http servers to start\n")
 
-	info( "\n*** Hosts are running http at the following addresses:\n" )
-	for httpHost in httpHosts:
-		info(httpHost.name, httpHost.IP(), '\n')
-	info("\n*** Type 'exit' or control-D to shut down network\n")
+	#for client in clients:
+	#	for httpHost in lbServers:
+	#		waitListening(client=httpClient, server=httpHost, port=80, timeout=5)
 
-	info( "\n*** Attempting to ping servers from clients\n" )
-	for httpClient in httpClients:
-		httpClient.cmd(clientCmd)
+	#info( "\n*** Hosts are running http at the following addresses:\n" )
+	#for httpHost in lbServers:
+	#	info(httpHost.name, httpHost.IP(), '\n')
+	#info("\n*** Type 'exit' or control-D to shut down network\n")
+
+	#info( "\n*** Attempting to ping servers from clients\n" )
+	#for httpClient in clients:
+	#	httpClient.cmd(clientCmd)
+
+#c = Controller('c2', port=6634)
 
 def simpleTest():
 	"Create and test a simple network"
@@ -47,6 +65,7 @@ def simpleTest():
 	topo = lbTopology()
 
 	net = Mininet(topo)
+	#net.addController(c)
 	net.start()
 	print "Dumping host connections"
 	dumpNodeConnections(net.hosts)
@@ -55,6 +74,7 @@ def simpleTest():
 
 	setupNetwork(net)
 
+	time.sleep(4)
 	net.stop()
 
 if __name__ == '__main__':
