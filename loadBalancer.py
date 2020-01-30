@@ -1,7 +1,7 @@
 import socket
 from threading import Thread, Lock
 import json
-from dataclasses import dataclass
+#from dataclasses import dataclass
 import time
 
 # Mutex to control access to the queue
@@ -13,14 +13,30 @@ queue = []
 # Mutex to control access to the load balanced servers list
 lbServerMutex = Lock()
 
-loadBalancedServers = []
+loadThreads = []
 
 
-@dataclass
+#@dataclass
+#class LB_Server:
+#  ip: str
+#  port: int
+#  load: int
 class LB_Server:
-  ip: str
-  port: int
-  load: int
+  def __init__(self, ip, port, load):
+    self.ip = ip
+    self.port = port
+    self.load = load
+
+#@dataclass
+#class Client:
+#  priority: int
+#  message: str
+#  thread: Thread
+class Client:
+  def __init__(self, priority, message, thread):
+    self.priority = priority
+    self.message = message
+    self.thread = thread
 
 
 def determineLowestLoad():
@@ -29,10 +45,10 @@ def determineLowestLoad():
   success = False
   lbServerMutex.acquire()
   try:
-    for lbServer in loadBalancedServers:
-      if (lbServer.load < lowest):
-        lowest = lbServer.load
-        l = lbServer
+    for loadThread in loadThreads:
+      if (loadThread.load < lowest):
+        lowest = loadThread.load
+        l = loadThread
         success = True
   finally:
     lbServerMutex.release()
@@ -41,6 +57,7 @@ def determineLowestLoad():
 def determineLowestPriority():
   lowest = 100
   c = Client('100', '', Thread)
+  #c = Client(100, '', None)
   success = False
   for client in queue:
     if (client.priority < lowest):
@@ -73,40 +90,32 @@ class ListThread(Thread):
 
 # Spawn thread that monitors the list
 class LoadThread(Thread):
+  def __init__(self, address, commPort):
+    Thread.__init__(self)
+    self.address = address
+    self.commPort = commPort
+    self.load = 0
+
   def run(self):
+    # Constantly ping the associated server for information on the load
+    self.commSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    self.commSock.connect((self.address, self.commPort))
     while (True):
-      print("Going to query each of the servers for load information")
-      # Query each of the servers
-      for lbServer in loadBalancedServers:
-        commSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        commSock.connect((lbServer.ip, lbServer.port))
-        connectMsg = '{ \
-                        "message": "Hey I need your load values" \
-                      }'
-        commSock.sendall(bytes(connectMsg, 'UTF-8'))
-        dataRecv = commSock.recv(1024).decode()
+      connectMsg = '{ \
+                      "message": "Hey I need your load values" \
+                    }'
+      self.commSock.sendall(bytes(connectMsg, 'UTF-8'))
+      dataRecv = self.commSock.recv(1024).decode()
 
-        dataRecvJson = json.loads(dataRecv)
-        print("Received: %s" % (dataRecvJson))
+      dataRecvJson = json.loads(dataRecv)
+      print("Received: %s" % (dataRecvJson))
 
-        lbServerMutex.acquire()
-        try:
-          lbServer.load = dataRecvJson['load']
-        finally:
-          lbServerMutex.release()
-
-        commSock.close()
-      print("loadbalancedServers: ")
-      print(loadBalancedServers)
+      self.load = dataRecvJson['load']
 
       time.sleep(0.2)
 
+    self.commSock.close()
 
-@dataclass
-class Client:
-  priority: int
-  message: str
-  thread: Thread
 
 def strToClient(message, thread):
   messageJson = json.loads(message)
@@ -171,12 +180,10 @@ print("Waiting for connections...")
 listThread = ListThread()
 listThread.start()
 
-# TODO Programmatically spawn load balancing children from this script and add it to the list
-lbServer = LB_Server('127.0.0.1', 4000, 0)
-loadBalancedServers.append(lbServer)
-
-loadThread = LoadThread()
+# Spawn a LoadThread for each connected loadBalancedServer.py
+loadThread = LoadThread('127.0.0.1', 4000)
 loadThread.start()
+loadThreads.append(loadThread)
 
 origPort = 8081
 
