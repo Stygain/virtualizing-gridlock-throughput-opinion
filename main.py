@@ -7,7 +7,10 @@ from mininet.util import waitListening
 
 from loadBalancerTopology import lbTopology
 
-def setupNetwork(network, cmd='python -m SimpleHTTPServer 80 &'):
+def setupNetwork(network):
+	serverCmd = 'python -m SimpleHTTPServer 80 &'
+	clientCmd = 'curl 10.0.0.2 > tmpFile'
+
 	switch = network['s1']
 
 	httpHosts = []
@@ -21,7 +24,7 @@ def setupNetwork(network, cmd='python -m SimpleHTTPServer 80 &'):
 			httpClients.append(host)
 	
 	for httpHost in httpHosts:
-		httpHost.cmd(cmd)
+		httpHost.cmd(serverCmd)
 
 	info("*** Waiting for http servers to start\n")
 
@@ -33,6 +36,10 @@ def setupNetwork(network, cmd='python -m SimpleHTTPServer 80 &'):
 	for httpHost in httpHosts:
 		info(httpHost.name, httpHost.IP(), '\n')
 	info("\n*** Type 'exit' or control-D to shut down network\n")
+
+	info( "\n*** Attempting to ping servers from clients\n" )
+	for httpClient in httpClients:
+		httpClient.cmd(clientCmd)
 
 def simpleTest():
 	"Create and test a simple network"
