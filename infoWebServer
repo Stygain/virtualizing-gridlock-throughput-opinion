@@ -1,0 +1,6 @@
+to run:
+	python3 webServer.py &
+
+to test:
+	wget localhost:8080
+
