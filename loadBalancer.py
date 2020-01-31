@@ -111,7 +111,7 @@ class LoadThread(threading.Thread):
   def __init__(self, sock):
     threading.Thread.__init__(self)
     #self.threadSafePrint("LB: Listening for servers on " + str(LOCALHOST) + ":" + str(LB_PORT))
-    print("LB LT Listening")
+    print("LB LT Listening", flush=True)
     self.load = 0
     self.ip = ""
     self.port = 4001
@@ -152,9 +152,10 @@ class MasterLoadThread(threading.Thread):
     self.threadSafePrint("LB: Listening for servers on " + str(LOCALHOST) + ":" + str(LB_PORT))
 
   def threadSafePrint(self, msg):
-    printLock.acquire()
-    print(msg)
-    printLock.release()
+    print(msg, flush=True)
+    #printLock.acquire()
+    #print(msg)
+    #printLock.release()
 
   def run(self):
     global loadThreads
@@ -163,7 +164,7 @@ class MasterLoadThread(threading.Thread):
 
     while (True):
       self.serverSock, self.serverAddr = self.reqSocket.accept()
-      self.threadSafePrint("LB: Connected to server:" + str(self.serverAddr[0]) + ":" + str(self.serverAddr[1]))
+      self.threadSafePrint("LB: Server connected to load balancer: " + str(self.serverAddr[0]) + ":" + str(self.serverAddr[1]))
       #thread = threading.Thread(target=self.pingServer, args=(self.serverSock,))
       #thread.start()
       loadThread = LoadThread(self.serverSock)
@@ -191,7 +192,7 @@ def printClient(m):
 class ClientThread(threading.Thread):
   def __init__(self, sock, callback=lambda: None):
     threading.Thread.__init__(self)
-    print("ClientThread listening")
+    print("ClientThread listening", flush=True)
     self.commSock = sock
     self.priority = 0
     self.callback = callback
@@ -205,7 +206,7 @@ class ClientThread(threading.Thread):
 
     data = self.commSock.recv(1024)
     if not data:
-      print('LB: Closing connection to client')
+      print('LB: Closing connection to client', flush=True)
     #print("RECEIVED: %s" % (data.decode()))
     dataJson = json.loads(data.decode())
     self.priority = dataJson['priority']
@@ -243,9 +244,10 @@ class MasterClientThread(threading.Thread):
     self.threadSafePrint("LB: Listening for clients on " + str(LOCALHOST) + ":" + str(CLIENT_PORT))
 
   def threadSafePrint(self, msg):
-    printLock.acquire()
-    print(msg)
-    printLock.release()
+    print(msg, flush=True)
+    #printLock.acquire()
+    #print(msg)
+    #printLock.release()
 
   def run(self):
     global currentClients
