@@ -10,21 +10,18 @@ msg = '{ \
         "priority": 2, \
         "message": "This is my message" \
       }'
-
-#msgJson = json.loads(msg)
-#print(msgJson)
+thanks = '{ \
+            "priority": 2, \
+            "message": "Thanks" \
+          }'
 
 clientSock.sendall(bytes(msg, 'UTF-8'))
-while (True):
-  dataRecv = clientSock.recv(1024)
-  print("Received: %s" % (dataRecv.decode()))
-  inp = input()
-  newMsg = '{ \
-              "priority": 1, \
-              "message": "' + inp + '" \
-            }'
-  clientSock.sendall(bytes(newMsg, 'UTF-8'))
-  if (inp == 'exit' or inp == 'quit'):
-    break
+dataRecv = clientSock.recv(1024)
+print("Received: %s" % (dataRecv.decode()))
+clientSock.sendall(bytes(thanks, 'UTF-8'))
+
+# Receive the redirect
+dataRecv = clientSock.recv(1024)
+print("Received: %s" % (dataRecv.decode()))
 
 clientSock.close()
