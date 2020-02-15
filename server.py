@@ -59,28 +59,31 @@ def printClient(m):
 
 # Thread for each connection
 class ClientThread(Thread):
-  def __init__(self, clientAddr, clientSock):
+  def __init__(self, clientAddr, clientSock, port):
     Thread.__init__(self)
     self.redir = False
     self.redirAddr = ""
-    self.clientSock = clientSock;
-    print(clientAddr)
-    self.clientAddr = clientAddr;
-    print("New connection added: ", self.clientAddr)
+    self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    self.sock.bind((LOCALHOST, port))
+    print("Server started on %s:%d" % (LOCALHOST, port))
 
   def run(self):
-    print("Connection from: ", self.clientAddr)
+    print("Waiting for a connection on clientthread")
+    self.sock.listen(1)
+    self.clientSock, self.clientAddr = self.sock.accept()
+    print("New connection added: ", self.clientAddr)
 
-    dataRecv = clientSock.recv(2048)
-    dataDecode = dataRecv.decode()
-    print("Received: %s" % (dataDecode))
+    #dataRecv = self.clientSock.recv(2048)
+    #dataDecode = dataRecv.decode()
+    #print("Received: %s" % (dataDecode))
 
-    dataJson = json.loads(dataDecode)
-    print(dataJson)
+    #dataJson = json.loads(dataDecode)
+    #print(dataJson)
 
-    if (dataJson["message"] == 'exit' or dataJson["message"] == 'quit'):
-      print("Client disconnected")
-      return
+    #if (dataJson["message"] == 'exit' or dataJson["message"] == 'quit'):
+    #  print("Client disconnected")
+    #  return
 
     while (True):
       if (self.redir):
@@ -88,14 +91,11 @@ class ClientThread(Thread):
                           "status": 200, \
                           "redirect": "' + self.redirAddr + '" \
                         }'
-        clientSock.send(bytes(redirMessage, 'UTF-8'))
+        self.clientSock.send(bytes(redirMessage, 'UTF-8'))
         break;
       time.sleep(0.5)
     return
 
-successMessage = '{ \
-                    "status": 200 \
-                  }'
 
 # Main thread keeps a socket open and appends to the list
 LOCALHOST = "127.0.0.1"
@@ -109,14 +109,21 @@ print("Waiting for connections...")
 listThread = ListThread()
 listThread.start()
 
+origPort = 8081
+
 while (True):
   reqSocket.listen(1)
   clientSock, clientAddr = reqSocket.accept()
 
   dataDecode = clientSock.recv(2048).decode()
-  newThread = ClientThread(clientAddr, clientSock)
+  newThread = ClientThread(clientAddr, clientSock, origPort)
   client = strToClient(dataDecode, newThread)
   printClient(client)
+  successMessage = '{ \
+                      "status": 200, \
+                      "port": ' + str(origPort) + ' \
+                    }'
+  origPort = origPort + 1
   clientSock.send(bytes(successMessage, 'UTF-8'))
   print("Adding client to queue")
   mutex.acquire()
