@@ -1,0 +1,44 @@
+import socket
+from threading import Thread, Lock
+import json
+import time
+
+# Main thread keeps a socket open and appends to the list
+LOCALHOST = "127.0.0.1"
+LB_PORT = 3000
+
+mutex = Lock()
+
+clients = 0
+
+class LoadBalancerCommThread():
+    def __init__(self):
+	Thread.__init__(self)
+	self.reqSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+	self.reqSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+	self.reqSocket.bind((LOCALHOST, LB_PORT))
+	print("Server started on %s:%d" % (LOCALHOST, LB_PORT))
+
+    def run(self):
+	print("Waiting for a connection from the Load Balancing Server")
+	while (True):
+	    self.sock.listen(1)
+	    self.clientSock, self.clientAddr = self.sock.accept()
+	    print("New connection added to load balancer: ", self.clientAddr)
+
+	    dataDecode = self.clientSock.recv(2048).decode()
+	    print("Received: " + dataDecode)
+
+	    # Check that the message is a request for load?
+	    mutex.acquire()
+	    try:
+		# send back information about the number of clients currently being serviced
+		time.sleep(1)
+	    finally:
+		mutex.release()
+
+
+lbComm = LoadBalancerCommThread()
+lbComm.start()
+
+
