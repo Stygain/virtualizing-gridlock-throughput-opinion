@@ -38,6 +38,7 @@ class LoadBalancerCommThread(Thread):
                      "load": ' + str(clients) + ' \
                    }'
         self.clientSock.send(bytes(loadMsg, 'UTF-8'))
+        # Temp for demonstration
         clients = clients + 1
       finally:
         mutex.release()
