@@ -4,11 +4,39 @@ import json
 from dataclasses import dataclass
 import time
 
-# Mutex to control access to the list
-mutex = Lock()
+# Mutex to control access to the queue
+queueMutex = Lock()
 
 # Queue
 queue = []
+
+# Mutex to control access to the load balanced servers list
+lbServerMutex = Lock()
+
+loadBalancedServers = []
+
+
+@dataclass
+class LB_Server:
+  ip: str
+  port: int
+  load: int
+
+
+def determineLowestLoad():
+  lowest = 100
+  l = LB_Server('127.0.0.1', 4000, 100)
+  success = False
+  lbServerMutex.acquire()
+  try:
+    for lbServer in loadBalancedServers:
+      if (lbServer.load < lowest):
+        lowest = lbServer.load
+        l = lbServer
+        success = True
+  finally:
+    lbServerMutex.release()
+  return (l, success)
 
 def determineLowestPriority():
   lowest = 100
@@ -26,17 +54,51 @@ class ListThread(Thread):
   def run(self):
     while (True):
       if (True): # if I have open hosts
-        mutex.acquire()
+        queueMutex.acquire()
         try:
-          (client, success) = determineLowestPriority()
-          if (success):
+          (client, success1) = determineLowestPriority()
+          (lbServer, success2) = determineLowestLoad()
+          if (success1 and success2):
             print("LOWEST PRIORITY")
             print(client)
-            client.thread.redirAddr = "www.google.com"
+            print("LOWEST LOAD")
+            print(lbServer)
+            client.thread.redirAddr = lbServer.ip
             client.thread.redir = True
             queue.remove(client)
         finally:
-          mutex.release()
+          queueMutex.release()
+      time.sleep(0.2)
+
+
+# Spawn thread that monitors the list
+class LoadThread(Thread):
+  def run(self):
+    while (True):
+      print("Going to query each of the servers for load information")
+      # Query each of the servers
+      for lbServer in loadBalancedServers:
+        commSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        commSock.connect((lbServer.ip, lbServer.port))
+        connectMsg = '{ \
+                        "message": "Hey I need your load values" \
+                      }'
+        commSock.sendall(bytes(connectMsg, 'UTF-8'))
+        dataRecv = commSock.recv(1024).decode()
+
+        dataRecvJson = json.loads(dataRecv)
+        print("Received: %s" % (dataRecvJson))
+
+        lbServerMutex.acquire()
+        try:
+          lbServer.load = dataRecvJson['load']
+        finally:
+          lbServerMutex.release()
+
+        commSock.close()
+      print("loadbalancedServers: ")
+      print(loadBalancedServers)
+
       time.sleep(0.2)
 
 
@@ -109,6 +171,13 @@ print("Waiting for connections...")
 listThread = ListThread()
 listThread.start()
 
+# TODO Programmatically spawn load balancing children from this script and add it to the list
+lbServer = LB_Server('127.0.0.1', 4000, 0)
+loadBalancedServers.append(lbServer)
+
+loadThread = LoadThread()
+loadThread.start()
+
 origPort = 8081
 
 while (True):
@@ -126,12 +195,12 @@ while (True):
   origPort = origPort + 1
   clientSock.send(bytes(successMessage, 'UTF-8'))
   print("Adding client to queue")
-  mutex.acquire()
+  queueMutex.acquire()
   try:
     queue.append(client)
     print("Queue now")
     print(queue)
   finally:
-    mutex.release()
+    queueMutex.release()
 
   newThread.start()

@@ -20,6 +20,7 @@ class LoadBalancerCommThread(Thread):
     print("Server started on %s:%d" % (LOCALHOST, LB_PORT))
 
   def run(self):
+    global clients
     print("Waiting for a connection from the Load Balancing Server")
     while (True):
       self.reqSocket.listen(1)
@@ -27,7 +28,7 @@ class LoadBalancerCommThread(Thread):
       print("New connection added to load balancer: ", self.clientAddr)
 
       dataDecode = self.clientSock.recv(2048).decode()
-      print("Received: " + dataDecode)
+      #print("Received: " + dataDecode)
 
       # Check that the message is a request for load?
       mutex.acquire()
@@ -37,6 +38,7 @@ class LoadBalancerCommThread(Thread):
                      "load": ' + str(clients) + ' \
                    }'
         self.clientSock.send(bytes(loadMsg, 'UTF-8'))
+        clients = clients + 1
       finally:
         mutex.release()
 
@@ -44,4 +46,5 @@ class LoadBalancerCommThread(Thread):
 lbComm = LoadBalancerCommThread()
 lbComm.start()
 
+# TODO Add in implementation for actual server assets
 
