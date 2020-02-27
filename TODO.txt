@@ -1,0 +1,18 @@
+multiple clients
+multiple load balanced servers
+
+modify loadBalancedServer.py to support a parameterized amount of child threads to support communication: each of these client threads listens on the same port
+modify loadBalancer.py ListThread and LoadThread to communicate. ListThread should only enable a comm thread to talk back to a client if the load is low enough
+
+create multiple clients which each ask the load balancer for a host
+
+
+refactor existing resources to keep track of how load-heavy a server is:
+    one resource per server
+    one thread per server with a communication link to that servers LBCommThread socket
+    constantly asking it its load
+
+OTHER method:
+    one resource per server
+    server pings LB when it is available to take more
+    LB has one thread per server with a communication link to the LBCommThread socket
