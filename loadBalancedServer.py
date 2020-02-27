@@ -22,11 +22,10 @@ class LoadBalancerCommThread(Thread):
   def run(self):
     global clients
     print("Waiting for a connection from the Load Balancing Server")
+    self.reqSocket.listen(1)
+    self.clientSock, self.clientAddr = self.reqSocket.accept()
+    print("New connection added to load balancer: ", self.clientAddr)
     while (True):
-      self.reqSocket.listen(1)
-      self.clientSock, self.clientAddr = self.reqSocket.accept()
-      print("New connection added to load balancer: ", self.clientAddr)
-
       dataDecode = self.clientSock.recv(2048).decode()
       #print("Received: " + dataDecode)
 
