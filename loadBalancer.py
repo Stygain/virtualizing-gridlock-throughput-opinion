@@ -103,7 +103,7 @@ class ListThread(threading.Thread):
 # Spawn thread that monitors the list
 class LoadThread(threading.Thread):
   def __init__(self, address, commPort):
-    Thread.__init__(self)
+    threading.Thread.__init__(self)
     self.address = address
     self.commPort = commPort
     self.load = 0
@@ -186,7 +186,7 @@ class ClientThread(threading.Thread):
     self.reqSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     self.reqSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     self.reqSocket.bind((LOCALHOST, CLIENT_PORT))
-    self.threadSafePrint("Client connected to load balancer on " + str(LOCALHOST) + ":" + str(CLIENT_PORT))
+    self.threadSafePrint("LB: Listening for clients on " + str(LOCALHOST) + ":" + str(CLIENT_PORT))
 
   def threadSafePrint(self, msg):
     printLock.acquire()
@@ -197,7 +197,7 @@ class ClientThread(threading.Thread):
     while (True):
       data = client.recv(1024)
       if not data:
-        self.threadSafePrint('Closing connection to client')
+        self.threadSafePrint('LB: Closing connection to client')
         break
       sendMutex.acquire()
       redirMessage = '{ \
@@ -217,11 +217,11 @@ class ClientThread(threading.Thread):
     while (True):
         if (threading.active_count() < allowedThreadCount):
             self.clientSock, self.clientAddr = self.reqSocket.accept()
-            self.threadSafePrint("Connected to :" + str(self.clientAddr[0]) + ":" + str(self.clientAddr[1]))
+            self.threadSafePrint("LB: Connected to :" + str(self.clientAddr[0]) + ":" + str(self.clientAddr[1]))
             thread = threading.Thread(target=self.handleClient, args=(self.clientSock,))
             thread.start()
         clients = threading.active_count() - baseThreadCount
-        self.threadSafePrint("Number of clients connected to LB: "+str(clients))
+        self.threadSafePrint("LB: Number of clients connected to LB: "+str(clients))
       
 # Main thread keeps a socket open and appends to the list
 LOCALHOST = "127.0.0.1"
@@ -229,16 +229,16 @@ PORT = 8080
 reqSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 reqSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 reqSocket.bind((LOCALHOST, PORT))
-print("Server started on %s:%d" % (LOCALHOST, PORT))
-print("Waiting for connections...")
+print("LB: Listening for servers on %s:%d" % (LOCALHOST, PORT))
+print("LB: Waiting for connections...")
 
-#listThread = ListThread()   # Monitors queue
-#listThread.start()
+listThread = ListThread()   # Monitors queue
+listThread.start()
 
 # Spawn a LoadThread for each connected loadBalancedServer.py
-#loadThread = LoadThread('127.0.0.1', 4000)  
-#loadThread.start()
-#loadThreads.append(loadThread)
+loadThread = LoadThread('127.0.0.1', 4000)  
+loadThread.start()
+loadThreads.append(loadThread)
 
 clientThread = ClientThread()
 clientThread.start()

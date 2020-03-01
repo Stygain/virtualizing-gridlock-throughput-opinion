@@ -21,7 +21,7 @@ class LoadBalancerCommThread(threading.Thread):
     self.reqSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     self.reqSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     self.reqSocket.bind((LOCALHOST, LB_PORT))
-    self.threadSafePrint("Server started on " + str(LOCALHOST) + ":" + str(LB_PORT))
+    self.threadSafePrint("S: LB comm started on " + str(LOCALHOST) + ":" + str(LB_PORT))
 
   def threadSafePrint(self, msg):
     mutex.acquire()
@@ -30,10 +30,10 @@ class LoadBalancerCommThread(threading.Thread):
 
   def run(self):
     global clients
-    self.threadSafePrint("Waiting for a connection from the Load Balancing Server")
+    self.threadSafePrint("S: Waiting for a connection from the Load Balancing Server")
     self.reqSocket.listen(1)
     self.clientSock, self.clientAddr = self.reqSocket.accept()
-    self.threadSafePrint("New connection added to load balancer: " + str(self.clientAddr))
+    self.threadSafePrint("S: New connection added to load balancer: " + str(self.clientAddr))
     while (True):
       dataDecode = self.clientSock.recv(2048).decode()
       #print("Received: " + dataDecode)
@@ -55,7 +55,7 @@ class ClientCommThread(threading.Thread):
     self.reqSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     self.reqSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     self.reqSocket.bind((LOCALHOST, CLIENT_PORT))
-    self.threadSafePrint("Server started on " + str(LOCALHOST) + ":" + str(CLIENT_PORT))
+    self.threadSafePrint("S: Listenind for clients on " + str(LOCALHOST) + ":" + str(CLIENT_PORT))
 
   def threadSafePrint(self, msg):
     mutex.acquire()
@@ -66,7 +66,7 @@ class ClientCommThread(threading.Thread):
     while (True):
       data = client.recv(1024)
       if not data:
-        self.threadSafePrint('Closing connection to client')
+        self.threadSafePrint('S: Closing connection to client')
         break
       mutex.acquire()
       client.send(data) # Echo data back to client
@@ -84,10 +84,10 @@ class ClientCommThread(threading.Thread):
       clients = threading.active_count() - baseThreadCount    # Update client count
       if (threading.active_count() < allowedThreadCount):   # Only allow up to the number of ALLOWED_CLIENTS
         self.clientSock, self.clientAddr = self.reqSocket.accept()
-        self.threadSafePrint('Connected to :' + str(self.clientAddr[0]) + ':' + str(self.clientAddr[1]))
+        self.threadSafePrint('S: Connected to client on :' + str(self.clientAddr[0]) + ':' + str(self.clientAddr[1]))
         thread = threading.Thread(target=self.handleClient, args=(self.clientSock,))
         thread.start()
-        self.threadSafePrint("Number of threads running is now: "+str(threading.active_count()))
+        self.threadSafePrint("S: Number of client threads running is now: "+str(threading.active_count()))
 
 lbComm = LoadBalancerCommThread()
 lbComm.start()
