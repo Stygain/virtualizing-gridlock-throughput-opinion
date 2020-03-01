@@ -228,8 +228,8 @@ reqSocket.bind((LOCALHOST, PORT))
 print("LB: Listening for servers on %s:%d" % (LOCALHOST, PORT), flush=True)
 print("LB: Waiting for connections...", flush=True)
 
-listThread = ListThread()   # Monitors queue
-listThread.start()
+queueThread = QueueThread()   # Monitors queue
+queueThread.start()
 
 # Spawn a LoadThread for each connected loadBalancedServer.py
 loadThread = LoadThread('127.0.0.1', 4000)  
