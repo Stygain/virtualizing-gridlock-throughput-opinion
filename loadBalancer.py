@@ -109,12 +109,12 @@ class LoadThread(threading.Thread):
 
   def pingServer(self, server): # Threaded function to check server loads
     while (True):
-      print("Going to ask for load values", flush=True)
+#      print("Going to ask for load values", flush=True)
       connectMsg = '{ \
                       "message": "Hey I need your load values" \
                     }'
       server.sendall(bytes(connectMsg, 'UTF-8'))
-      print("Waiting for response", flush=True)
+ #     print("Waiting for response", flush=True)
       dataRecv = server.recv(1024).decode()
 
       dataRecvJson = json.loads(dataRecv)
