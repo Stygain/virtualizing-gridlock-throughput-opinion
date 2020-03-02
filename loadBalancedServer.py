@@ -1,16 +1,17 @@
 import socket
+import os
+import argparse
 from _thread import *
-#from threading import Thread, Lock
 import threading
 import json
 import time
 
 # Main thread keeps a socket open and appends to the list
-#LOCALHOST = "127.0.0.1"
 LOCALHOST = ""
 LB_PORT = 4000
 CLIENT_PORT = 4001
 ALLOWED_CLIENTS = 5
+PID = os.getpid()
 
 mutex = threading.Lock()
 clientSendMutex = threading.Lock()
@@ -21,8 +22,9 @@ class LoadBalancerCommThread(threading.Thread):
   def __init__(self):
     threading.Thread.__init__(self)
     self.reqSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    self.reqSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    self.reqSocket.bind((LOCALHOST, LB_PORT))
+    #self.reqSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    #self.reqSocket.bind((LOCALHOST, LB_PORT))
+    self.reqSocket.connect((LOCALHOST, LB_PORT))
     self.threadSafePrint("S: LB comm started on " + str(LOCALHOST) + ":" + str(LB_PORT))
 
   def threadSafePrint(self, msg):
@@ -35,13 +37,13 @@ class LoadBalancerCommThread(threading.Thread):
 
   def run(self):
     global clients
-    self.threadSafePrint("S: Waiting for a connection from the Load Balancing Server")
-    self.reqSocket.listen(1)
-    self.clientSock, self.clientAddr = self.reqSocket.accept()
-    self.threadSafePrint("S: New connection added to load balancer: " + str(self.clientAddr))
+    #self.threadSafePrint("S: Waiting for a connection from the Load Balancing Server")
+    #self.reqSocket.listen(1)
+    #self.clientSock, self.clientAddr = self.reqSocket.accept()
+    #self.threadSafePrint("S: New connection added to load balancer: " + str(self.clientAddr))
     while (True):
-      dataDecode = self.clientSock.recv(2048).decode()
-      self.threadSafePrint("Received: " + str(dataDecode))
+      dataDecode = self.reqSocket.recv(2048).decode()
+#      self.threadSafePrint("S "+ str(PID) +": Received: " + str(dataDecode))
       #print("Received: " + dataDecode)
 
       # Check that the message is a request for load?
@@ -61,8 +63,8 @@ class LoadBalancerCommThread(threading.Thread):
       loadMsg = '{ \
                    "load": ' + str(clients) + ' \
                  }'
-      self.clientSock.send(bytes(loadMsg, 'UTF-8'))
-      self.threadSafePrint("Sent: " + str(loadMsg))
+      self.reqSocket.send(bytes(loadMsg, 'UTF-8'))
+ #     self.threadSafePrint("S: Sent: " + str(loadMsg))
 
 class ClientCommThread(threading.Thread):
   def __init__(self):
@@ -70,7 +72,7 @@ class ClientCommThread(threading.Thread):
     self.reqSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     self.reqSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     self.reqSocket.bind((LOCALHOST, CLIENT_PORT))
-    self.threadSafePrint("S: Listenind for clients on " + str(LOCALHOST) + ":" + str(CLIENT_PORT))
+    self.threadSafePrint("S: Listening for clients on " + str(LOCALHOST) + ":" + str(CLIENT_PORT))
 
   def threadSafePrint(self, msg):
     print(msg, flush=True)
@@ -109,8 +111,19 @@ class ClientCommThread(threading.Thread):
         thread.start()
         self.threadSafePrint("S: Number of client threads running is now: "+str(threading.active_count()))
 
-lbComm = LoadBalancerCommThread()
-lbComm.start()
+def main(args):
+  global CLIENT_PORT
+  CLIENT_PORT = args.cport
+ # LB_PORT = args.lbport
+  lbComm = LoadBalancerCommThread()
+  lbComm.start()
 
-cComm = ClientCommThread()
-cComm.start()
+  cComm = ClientCommThread()
+  cComm.start()
+
+if __name__ == "__main__":
+  parser = argparse.ArgumentParser()
+  #parser.add_argument('-lbport', type=int, help='Port to connect to load balancer on')
+  parser.add_argument('-cport', type=int, help='Port to listen for clients on')
+  args = parser.parse_args()
+  main(args)
