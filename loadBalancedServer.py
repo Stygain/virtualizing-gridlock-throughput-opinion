@@ -16,7 +16,18 @@ PID = os.getpid()
 mutex = threading.Lock()
 clientSendMutex = threading.Lock()
 
-clients = 0
+currentLoad = 0
+currentLoadMutex = threading.Lock()
+
+def cbFunction():
+  global currentLoad
+  global currentLoadMutex
+  currentLoadMutex.acquire()
+  try:
+    currentLoad -= 1
+    print("CURRENT LOAD %d" % currentLoad)
+  finally:
+    currentLoadMutex.release()
 
 class LoadBalancerCommThread(threading.Thread):
   def __init__(self):
@@ -36,7 +47,7 @@ class LoadBalancerCommThread(threading.Thread):
     #  mutex.release()
 
   def run(self):
-    global clients
+    global currentLoad
     #self.threadSafePrint("S: Waiting for a connection from the Load Balancing Server")
     #self.reqSocket.listen(1)
     #self.clientSock, self.clientAddr = self.reqSocket.accept()
@@ -61,7 +72,7 @@ class LoadBalancerCommThread(threading.Thread):
 
       # send back information about the number of clients currently being serviced
       loadMsg = '{ \
-                   "load": ' + str(clients) + ' \
+                   "load": ' + str(currentLoad) + ' \
                  }'
       self.reqSocket.send(bytes(loadMsg, 'UTF-8'))
  #     self.threadSafePrint("S: Sent: " + str(loadMsg))
@@ -82,7 +93,8 @@ class ClientCommThread(threading.Thread):
     #finally:
     #  mutex.release()
 
-  def handleClient(self, client): # Threaded function
+  def handleClient(self, client, callback=lambda: None): # Threaded function
+    self.callback = callback
     while (True):
       data = client.recv(1024)
       if not data:
@@ -94,20 +106,27 @@ class ClientCommThread(threading.Thread):
       finally:
         clientSendMutex.release()
     client.close()
+    self.callback()
 
   def run(self):
-    global clients
-    
+    global currentLoad
+    global currentLoadMutex
+
     self.reqSocket.listen(1)
     baseThreadCount = threading.active_count()
     allowedThreadCount = baseThreadCount + ALLOWED_CLIENTS
-    
+
     while (True):
-      clients = threading.active_count() - baseThreadCount    # Update client count
       if (threading.active_count() < allowedThreadCount):   # Only allow up to the number of ALLOWED_CLIENTS
         self.clientSock, self.clientAddr = self.reqSocket.accept()
         self.threadSafePrint('S: Connected to client on :' + str(self.clientAddr[0]) + ':' + str(self.clientAddr[1]))
-        thread = threading.Thread(target=self.handleClient, args=(self.clientSock,))
+        thread = threading.Thread(target=self.handleClient, args=(self.clientSock, cbFunction,))
+        currentLoadMutex.acquire()
+        try:
+          currentLoad += 1
+          self.threadSafePrint("CURRENT LOAD: " + str(currentLoad))
+        finally:
+          currentLoadMutex.release()
         thread.start()
         self.threadSafePrint("S: Number of client threads running is now: "+str(threading.active_count()))
 
