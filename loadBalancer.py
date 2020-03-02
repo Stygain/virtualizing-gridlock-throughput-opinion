@@ -25,6 +25,9 @@ printLock = threading.Lock()
 loadThreads = []
 
 connectedClients = 0    # Number of client currently connected to load balancer
+
+LOCALHOST = ""
+LB_PORT = 4000
 CLIENT_PORT = 8081  # Port clients communicate with load balancer on 
 ALLOWED_CLIENTS = 5     # Number of clients load balancer will handle at a time
 
@@ -43,7 +46,7 @@ class Client:
 
 def determineLowestLoad():
   lowest = 100
-  l = LB_Server('127.0.0.1', 4000, 100)
+  l = LB_Server('127.0.0.1', LB_PORT, 100)
   success = False
   lbServerMutex.acquire()
   try:
@@ -91,25 +94,30 @@ class QueueThread(threading.Thread):
 
 
 # Spawn thread that monitors the load of an individual server
+
 class LoadThread(threading.Thread):
-  def __init__(self, address, commPort):
+  def __init__(self):
     threading.Thread.__init__(self)
-    self.address = address
-    self.commPort = commPort
+    self.reqSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    self.reqSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    self.reqSocket.bind((LOCALHOST, LB_PORT))
+    self.threadSafePrint("LB: Listening for servers on " + str(LOCALHOST) + ":" + str(LB_PORT))
     self.load = 0
 
-  def run(self):
-    # Constantly ping the associated server for information on the load
-    self.commSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    self.commSock.connect((self.address, self.commPort))
+  def threadSafePrint(self, msg):
+    printLock.acquire()
+    print(msg)
+    printLock.release()
+
+  def pingServer(self, server): # Threaded function to check server loads
     while (True):
       print("Going to ask for load values", flush=True)
       connectMsg = '{ \
                       "message": "Hey I need your load values" \
                     }'
-      self.commSock.sendall(bytes(connectMsg, 'UTF-8'))
+      server.sendall(bytes(connectMsg, 'UTF-8'))
       print("Waiting for response", flush=True)
-      dataRecv = self.commSock.recv(1024).decode()
+      dataRecv = server.recv(1024).decode()
 
       dataRecvJson = json.loads(dataRecv)
       if (self.load != dataRecvJson['load']):
@@ -119,8 +127,51 @@ class LoadThread(threading.Thread):
 
       time.sleep(0.2)
 
-    self.commSock.close()
+    server.close()
 
+  def run(self):
+    self.reqSocket.listen(1)
+
+    while (True):
+      self.serverSock, self.serverAddr = self.reqSocket.accept()
+      self.threadSafePrint("LB: Connected to server:" + str(self.serverAddr[0]) + ":" + str(self.serverAddr[1]))
+      thread = threading.Thread(target=self.pingServer, args=(self.serverSock,))
+      thread.start()        
+
+
+def strToClient(message, thread):
+  messageJson = json.loads(message)
+
+
+#class LoadThread(threading.Thread):
+#  def __init__(self, address, commPort):
+#    threading.Thread.__init__(self)
+#    self.address = address
+#    self.commPort = commPort
+#    self.load = 0
+#
+#  def run(self):
+#    # Constantly ping the associated server for information on the load
+#    self.commSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+#    self.commSock.connect((self.address, self.commPort))
+#    while (True):
+#      print("Going to ask for load values", flush=True)
+#      connectMsg = '{ \
+#                      "message": "Hey I need your load values" \
+#                    }'
+#      self.commSock.sendall(bytes(connectMsg, 'UTF-8'))
+#      print("Waiting for response", flush=True)
+#      dataRecv = self.commSock.recv(1024).decode()
+#
+#      dataRecvJson = json.loads(dataRecv)
+#      if (self.load != dataRecvJson['load']):
+#        print("Received: %s" % (dataRecvJson), flush=True)
+#
+#      self.load = dataRecvJson['load']
+#
+#      time.sleep(0.2)
+#
+#    self.commSock.close()
 
 def strToClient(message, thread):
   messageJson = json.loads(message)
@@ -216,52 +267,54 @@ class ClientThread(threading.Thread):
             thread.start()
         clients = threading.active_count() - baseThreadCount
         self.threadSafePrint("LB: Number of clients connected to LB: "+str(clients))
-      
-# Main thread keeps a socket open and appends to the list
-#LOCALHOST = "127.0.0.1"
-LOCALHOST = ""
-PORT = 4000
-print("before", flush=True)
-reqSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-reqSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-reqSocket.bind((LOCALHOST, PORT))
-print("LB: Listening for servers on %s:%d" % (LOCALHOST, PORT), flush=True)
-print("LB: Waiting for connections...", flush=True)
 
-listThread = ListThread()   # Monitors queue
-listThread.start()
 
-# Spawn a LoadThread for each connected loadBalancedServer.py
-loadThread = LoadThread('127.0.0.1', 4000)  
-loadThread.start()
-loadThreads.append(loadThread)
+def main():
+  # Main thread keeps a socket open and appends to the list
+ # print("before", flush=True)
+ # reqSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+ # reqSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+  #reqSocket.bind((LOCALHOST, PORT))
+  #print("LB: Listening for servers on %s:%d" % (LOCALHOST, PORT), flush=True)
+  print("LB: Waiting for connections...", flush=True)
+  
+  queueThread = QueueThread()   # Monitors queue
+  queueThread.start()
+  
+  # Spawn a LoadThread to connect to running load balanced servers
+  loadThread = LoadThread()  
+  loadThread.start()
+  loadThreads.append(loadThread)
+  
+  clientThread = ClientThread()
+  clientThread.start()
+  
+  #origPort = 8081 
+  #
+  #while (True):
+  #  reqSocket.listen(1)
+  #  clientSock, clientAddr = reqSocket.accept()
+  #
+  #  dataDecode = clientSock.recv(2048).decode()
+  #  newThread = ClientThread(clientAddr, clientSock, origPort)
+  #  client = strToClient(dataDecode, newThread)
+  #  printClient(client)
+  #  successMessage = '{ \
+  #                      "status": 200, \
+  #                      "port": ' + str(origPort) + ' \
+  #                    }'
+  #  origPort = origPort + 1
+  #  clientSock.send(bytes(successMessage, 'UTF-8'))
+  #  print("Adding client to queue")
+  #  queueMutex.acquire()
+  #  try:
+  #    queue.append(client)
+  #    print("Queue now")
+  #    print(queue)
+  #  finally:
+  #    queueMutex.release()
+  #
+  #  newThread.start()
 
-clientThread = ClientThread()
-clientThread.start()
-
-#origPort = 8081 
-#
-#while (True):
-#  reqSocket.listen(1)
-#  clientSock, clientAddr = reqSocket.accept()
-#
-#  dataDecode = clientSock.recv(2048).decode()
-#  newThread = ClientThread(clientAddr, clientSock, origPort)
-#  client = strToClient(dataDecode, newThread)
-#  printClient(client)
-#  successMessage = '{ \
-#                      "status": 200, \
-#                      "port": ' + str(origPort) + ' \
-#                    }'
-#  origPort = origPort + 1
-#  clientSock.send(bytes(successMessage, 'UTF-8'))
-#  print("Adding client to queue")
-#  queueMutex.acquire()
-#  try:
-#    queue.append(client)
-#    print("Queue now")
-#    print(queue)
-#  finally:
-#    queueMutex.release()
-#
-#  newThread.start()
+if __name__ == "__main__":
+    main()
