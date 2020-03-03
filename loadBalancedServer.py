@@ -19,13 +19,13 @@ clientSendMutex = threading.Lock()
 currentLoad = 0
 currentLoadMutex = threading.Lock()
 
-def cbFunction():
+def currentLoadCallback():
   global currentLoad
   global currentLoadMutex
   currentLoadMutex.acquire()
   try:
     currentLoad -= 1
-    print("CURRENT LOAD %d" % currentLoad)
+    print("S[dec] Number of client threads running is now: %d" % currentLoad)
   finally:
     currentLoadMutex.release()
 
@@ -94,7 +94,6 @@ class ClientCommThread(threading.Thread):
     #  mutex.release()
 
   def handleClient(self, client, callback=lambda: None): # Threaded function
-    self.callback = callback
     while (True):
       data = client.recv(1024)
       if not data:
@@ -106,29 +105,26 @@ class ClientCommThread(threading.Thread):
       finally:
         clientSendMutex.release()
     client.close()
-    self.callback()
+    callback()
 
   def run(self):
     global currentLoad
     global currentLoadMutex
 
     self.reqSocket.listen(1)
-    baseThreadCount = threading.active_count()
-    allowedThreadCount = baseThreadCount + ALLOWED_CLIENTS
 
     while (True):
-      if (threading.active_count() < allowedThreadCount):   # Only allow up to the number of ALLOWED_CLIENTS
+      if (currentLoad < ALLOWED_CLIENTS):   # Only allow up to the number of ALLOWED_CLIENTS
         self.clientSock, self.clientAddr = self.reqSocket.accept()
         self.threadSafePrint('S: Connected to client on :' + str(self.clientAddr[0]) + ':' + str(self.clientAddr[1]))
-        thread = threading.Thread(target=self.handleClient, args=(self.clientSock, cbFunction,))
+        thread = threading.Thread(target=self.handleClient, args=(self.clientSock, currentLoadCallback,))
         currentLoadMutex.acquire()
         try:
           currentLoad += 1
-          self.threadSafePrint("CURRENT LOAD: " + str(currentLoad))
+          self.threadSafePrint("S[inc] Number of client threads running is now: "+str(currentLoad))
         finally:
           currentLoadMutex.release()
         thread.start()
-        self.threadSafePrint("S: Number of client threads running is now: "+str(threading.active_count()))
 
 def main(args):
   global CLIENT_PORT

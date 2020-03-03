@@ -26,8 +26,24 @@ connectedClients = 0    # Number of client currently connected to load balancer
 
 LOCALHOST = ""
 LB_PORT = 4000
-CLIENT_PORT = 8081  # Port clients communicate with load balancer on 
+CLIENT_PORT = 8081  # Port clients communicate with load balancer on
 ALLOWED_CLIENTS = 5     # Number of clients load balancer will handle at a time
+
+
+currentClients = 0
+currentClientsMutex = threading.Lock()
+
+def currentClientsCallback():
+  global currentClients
+  global currentClientsMutex
+
+  currentClientsMutex.acquire()
+  try:
+    currentClients -= 1
+    print("LB[dec] Number of clients connected to LB: %d" % currentClients)
+  finally:
+    currentClientsMutex.release()
+
 
 class LB_Server:
   def __init__(self, ip, port, load):
@@ -134,7 +150,7 @@ class LoadThread(threading.Thread):
       self.serverSock, self.serverAddr = self.reqSocket.accept()
       self.threadSafePrint("LB: Connected to server:" + str(self.serverAddr[0]) + ":" + str(self.serverAddr[1]))
       thread = threading.Thread(target=self.pingServer, args=(self.serverSock,))
-      thread.start()        
+      thread.start()
 
 
 #def strToClient(message, thread):
@@ -165,8 +181,8 @@ class ClientThread(threading.Thread):
     printLock.acquire()
     print(msg)
     printLock.release()
-  
-  def handleClient(self, client):   # Threaded function to handle single client
+
+  def handleClient(self, client, callback=lambda: None):   # Threaded function to handle single client
     while (True):
       data = client.recv(1024)
       if not data:
@@ -181,36 +197,42 @@ class ClientThread(threading.Thread):
       client.send(bytes(redirMessage, 'utf-8'))
       sendMutex.release()
     client.close()
+    callback()
 
   def run(self):
+    global currentClients
+    global currentClientsMutex
+
     self.reqSocket.listen(1)
-    baseThreadCount = threading.active_count()
-    allowedThreadCount = baseThreadCount + ALLOWED_CLIENTS
 
     while (True):
-        if (threading.active_count() < allowedThreadCount):
+        if (currentClients < ALLOWED_CLIENTS):
             self.clientSock, self.clientAddr = self.reqSocket.accept()
             self.threadSafePrint("LB: Connected to :" + str(self.clientAddr[0]) + ":" + str(self.clientAddr[1]))
-            thread = threading.Thread(target=self.handleClient, args=(self.clientSock,))
+            thread = threading.Thread(target=self.handleClient, args=(self.clientSock, currentClientsCallback))
+            currentClientsMutex.acquire()
+            try:
+              currentClients += 1
+              self.threadSafePrint("LB[inc] Number of clients connected to LB: "+str(currentClients))
+            finally:
+              currentClientsMutex.release()
             thread.start()
-        clients = threading.active_count() - baseThreadCount
-        self.threadSafePrint("LB: Number of clients connected to LB: "+str(clients))
 
 def main():
   # Main thread keeps a socket open and appends to the list
   print("LB: Waiting for connections...", flush=True)
-  
+
   queueThread = QueueThread()   # Monitors queue
   queueThread.start()
-  
+
   # Spawn a LoadThread to connect to running load balanced servers
-  loadThread = LoadThread()  
+  loadThread = LoadThread()
   loadThread.start()
   loadThreads.append(loadThread)
-  
+
   clientThread = ClientThread()
   clientThread.start()
-  
+
 
 if __name__ == "__main__":
     main()
