@@ -10,7 +10,7 @@ import time
 LOCALHOST = ""
 LB_PORT = 4000
 CLIENT_PORT = 4001
-ALLOWED_CLIENTS = 5
+#ALLOWED_CLIENTS = 5
 PID = os.getpid()
 
 mutex = threading.Lock()
@@ -30,13 +30,14 @@ def currentLoadCallback():
     currentLoadMutex.release()
 
 class LoadBalancerCommThread(threading.Thread):
-  def __init__(self):
+  def __init__(self, clientCommPort):
     threading.Thread.__init__(self)
     self.reqSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     #self.reqSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     #self.reqSocket.bind((LOCALHOST, LB_PORT))
     self.reqSocket.connect((LOCALHOST, LB_PORT))
     self.threadSafePrint("S: LB comm started on " + str(LOCALHOST) + ":" + str(LB_PORT))
+    self.clientCommPort = clientCommPort
 
   def threadSafePrint(self, msg):
     print(msg, flush=True)
@@ -71,19 +72,23 @@ class LoadBalancerCommThread(threading.Thread):
       #  mutex.release()
 
       # send back information about the number of clients currently being serviced
+      # TODO get the real IP
       loadMsg = '{ \
-                   "load": ' + str(currentLoad) + ' \
+                   "load": ' + str(currentLoad) + ', \
+                   "port": ' + str(self.clientCommPort) + ', \
+                   "ip": "127.0.0.1" \
                  }'
       self.reqSocket.send(bytes(loadMsg, 'UTF-8'))
  #     self.threadSafePrint("S: Sent: " + str(loadMsg))
 
 class ClientCommThread(threading.Thread):
-  def __init__(self):
+  def __init__(self, maxClients):
     threading.Thread.__init__(self)
     self.reqSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     self.reqSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     self.reqSocket.bind((LOCALHOST, CLIENT_PORT))
     self.threadSafePrint("S: Listening for clients on " + str(LOCALHOST) + ":" + str(CLIENT_PORT))
+    self.allowedClients = maxClients
 
   def threadSafePrint(self, msg):
     print(msg, flush=True)
@@ -101,6 +106,7 @@ class ClientCommThread(threading.Thread):
         break
       clientSendMutex.acquire()
       try:
+        time.sleep(1) # TODO use random value here
         client.send(data) # Echo data back to client
       finally:
         clientSendMutex.release()
@@ -114,7 +120,7 @@ class ClientCommThread(threading.Thread):
     self.reqSocket.listen(1)
 
     while (True):
-      if (currentLoad < ALLOWED_CLIENTS):   # Only allow up to the number of ALLOWED_CLIENTS
+      if (currentLoad < self.allowedClients):   # Only allow up to the number of ALLOWED_CLIENTS
         self.clientSock, self.clientAddr = self.reqSocket.accept()
         self.threadSafePrint('S: Connected to client on :' + str(self.clientAddr[0]) + ':' + str(self.clientAddr[1]))
         thread = threading.Thread(target=self.handleClient, args=(self.clientSock, currentLoadCallback,))
@@ -130,15 +136,16 @@ def main(args):
   global CLIENT_PORT
   CLIENT_PORT = args.cport
  # LB_PORT = args.lbport
-  lbComm = LoadBalancerCommThread()
+  lbComm = LoadBalancerCommThread(CLIENT_PORT)
   lbComm.start()
 
-  cComm = ClientCommThread()
+  cComm = ClientCommThread(args.ccount)
   cComm.start()
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser()
   #parser.add_argument('-lbport', type=int, help='Port to connect to load balancer on')
-  parser.add_argument('-cport', type=int, help='Port to listen for clients on')
+  parser.add_argument('-cport', type=int, required=True, help='Port to listen for clients on')
+  parser.add_argument('-ccount', type=int, required=True, help='Max number of clients this server can handle')
   args = parser.parse_args()
   main(args)
