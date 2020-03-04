@@ -126,6 +126,7 @@ class LoadThread(threading.Thread):
       self.socket.sendall(bytes(connectMsg, 'UTF-8'))
       #print("Waiting for response", flush=True)
       dataRecv = self.socket.recv(1024).decode()
+      #print("RECEIVED: %s" % dataRecv)
 
       dataRecvJson = json.loads(dataRecv)
       #print("Received: %s" % (dataRecvJson), flush=True)
