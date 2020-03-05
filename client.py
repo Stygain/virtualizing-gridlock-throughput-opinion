@@ -5,6 +5,8 @@ import json
 LOCALHOST = "127.0.0.1"
 PORT = 8081
 
+packetsSent = 0
+
 while (True):
     clientSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     clientSock.connect((LOCALHOST, PORT))
@@ -39,6 +41,9 @@ while (True):
     dataRecv = serverSock.recv(1024)
     print("C: Received from server: %s" % (dataRecv.decode()))
     serverSock.close()
+
+    packetsSent += 1
+    print("C: Packets successfully transmitted: %d" % (packetsSent))
 
     # Receive the redirect
     #dataRecv = secondSock.recv(1024)
