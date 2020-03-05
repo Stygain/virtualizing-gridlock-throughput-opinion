@@ -12,7 +12,7 @@ from loadBalancerTopology import lbTopology
 
 def setupNetwork(network):
 	loadBalancerCmd = 'python3 loadBalancer.py > lb.txt 2>&1 &'
-	serverCmd = 'python3 loadBalancedServer.py > lbserv.txt 2>&1 &'
+	#serverCmd = 'python3 loadBalancedServer.py -ccount 3 -ip  > lbserv.txt 2>&1 &'
 
 	switch = network['s1']
 
@@ -35,12 +35,12 @@ def setupNetwork(network):
 			info(netHost.name, netHost.IP(), '\n')
 			clients.append(netHost)
 	
-	info( "\n\n*** Starting up servers\n" )
-	for lbServer in lbServers:
-		lbServer.cmd(serverCmd)
-
 	info( "\n\n*** Starting up load balancer\n" )
 	loadBalancer.cmd(loadBalancerCmd)
+
+	info( "\n\n*** Starting up servers\n" )
+	for lbServer in lbServers:
+		lbServer.cmd('python3 loadBalancedServer.py -ccount 3 -ip ' + lbServer.IP() + ' -cport 4001 > lbserv.txt 2>&1 &')
 
 	#info("*** Waiting for http servers to start\n")
 

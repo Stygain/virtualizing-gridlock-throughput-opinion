@@ -25,7 +25,7 @@ def currentLoadCallback():
   currentLoadMutex.acquire()
   try:
     currentLoad -= 1
-    print("S[dec] Number of client threads running is now: %d" % currentLoad)
+    print("S[dec] Number of client threads running is now: %d" % currentLoad, flush=True)
   finally:
     currentLoadMutex.release()
 
@@ -35,8 +35,10 @@ class LoadBalancerCommThread(threading.Thread):
     self.reqSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     #self.reqSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     #self.reqSocket.bind((LOCALHOST, LB_PORT))
-    self.reqSocket.connect((LOCALHOST, LB_PORT))
-    self.threadSafePrint("S: LB comm started on " + str(LOCALHOST) + ":" + str(LB_PORT))
+    #self.reqSocket.connect((LOCALHOST, LB_PORT))
+    HOST="10.0.0.1"
+    self.reqSocket.connect((HOST, LB_PORT))
+    self.threadSafePrint("S: LB comm started on " + str(HOST) + ":" + str(LB_PORT))
     self.clientCommPort = clientCommPort
     self.ip = ip
 
@@ -56,7 +58,7 @@ class LoadBalancerCommThread(threading.Thread):
     #self.threadSafePrint("S: New connection added to load balancer: " + str(self.clientAddr))
     while (True):
       dataDecode = self.reqSocket.recv(2048).decode()
-#      self.threadSafePrint("S "+ str(PID) +": Received: " + str(dataDecode))
+      #self.threadSafePrint("S "+ str(PID) +": Received: " + str(dataDecode))
       #print("Received: " + dataDecode)
 
       # Check that the message is a request for load?
@@ -73,14 +75,13 @@ class LoadBalancerCommThread(threading.Thread):
       #  mutex.release()
 
       # send back information about the number of clients currently being serviced
-      # TODO get the real IP
       loadMsg = '{ \
                    "load": ' + str(currentLoad) + ', \
                    "port": ' + str(self.clientCommPort) + ', \
                    "ip": "' + self.ip + '" \
                  }'
       self.reqSocket.send(bytes(loadMsg, 'UTF-8'))
- #     self.threadSafePrint("S: Sent: " + str(loadMsg))
+      #self.threadSafePrint("S: Sent: " + str(loadMsg))
 
 class ClientCommThread(threading.Thread):
   def __init__(self, maxClients):
