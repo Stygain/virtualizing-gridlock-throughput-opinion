@@ -68,7 +68,7 @@ def determineLowestLoad():
   lbServerMutex.acquire()
   try:
     for loadThread in loadThreads:
-      if (loadThread.load < lowest):
+      if (loadThread.load < loadThread.maximum and loadThread.load < lowest):
         lowest = loadThread.load
         l = loadThread
         success = True
