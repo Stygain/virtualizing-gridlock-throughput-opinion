@@ -3,6 +3,8 @@ from _thread import *
 import threading
 import json
 import time
+import argparse
+import sys
 
 # Mutex to control access to the queue
 queueMutex = threading.Lock()
@@ -66,13 +68,31 @@ def determineLowestLoad():
   lbServerMutex.acquire()
   try:
     for loadThread in loadThreads:
-      if (loadThread.load < lowest):
+      if (loadThread.load < loadThread.maximum and loadThread.load < lowest):
         lowest = loadThread.load
         l = loadThread
         success = True
   finally:
     lbServerMutex.release()
   return (l, success)
+
+
+def determineNextServer(prevIndex):
+  l = LB_Server('127.0.0.1', LB_PORT, 100)
+  success = False
+  lbServerMutex.acquire()
+  index = 0
+  #print("LEN: " + str(len(loadThreads)))
+  try:
+    #i = prevIndex
+    for i in range(len(loadThreads)):
+      index = (i + prevIndex) % len(loadThreads)
+      if (loadThreads[index].load < loadThreads[index].maximum):
+        l = loadThreads[index]
+        success = True
+  finally:
+    lbServerMutex.release()
+  return (l, index, success)
 
 
 def determineLowestPriority():
@@ -90,13 +110,18 @@ def determineLowestPriority():
 # Spawn thread that monitors the queue
 class QueueThread(threading.Thread):
   def run(self):
+    index = 0
     while (True):
       if (True): # if I have open hosts
         queueMutex.acquire()
         try:
           (client, success1) = determineLowestPriority()
-          (lbServer, success2) = determineLowestLoad()
+          if (args.algo == 'ROUND_ROBIN'):
+            (lbServer, index, success2) = determineNextServer(index)
+          else:
+            (lbServer, success2) = determineLowestLoad()
           if (success1 and success2):
+            #print("INDEX " + str(index))
             client.thread.redirAddr = lbServer.ip
             client.thread.redirPort = lbServer.port
             client.thread.redir = True
@@ -116,6 +141,7 @@ class LoadThread(threading.Thread):
     self.ip = ""
     self.port = 4001
     self.socket = sock
+    self.maximum = 0
 
   def run(self):
     while (True):
@@ -135,6 +161,9 @@ class LoadThread(threading.Thread):
 
       self.load = dataRecvJson['load']
       self.port = dataRecvJson['port']
+      self.maximum = dataRecvJson['max']
+      #print("self.maximum")
+      #print(self.maximum)
       self.ip = dataRecvJson['ip']
 
       time.sleep(0.001)
@@ -271,7 +300,7 @@ class MasterClientThread(threading.Thread):
         clientThread.start()
 
 
-def main():
+def main(args):
   # Main thread keeps a socket open and appends to the list
   print("LB: Waiting for connections...", flush=True)
 
@@ -287,4 +316,11 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+  parser = argparse.ArgumentParser()
+  parser.add_argument('-algo', type=str, required=True, help="Algorithm to use, options are 'ROUND_ROBIN' and 'LEAST_CONNECTIONS'")
+
+  args = parser.parse_args()
+  if (args.algo != 'ROUND_ROBIN' and args.algo != 'LEAST_CONNECTIONS'):
+    print("Algorithm not recognized.")
+    sys.exit(1)
+  main(args)
