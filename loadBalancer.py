@@ -116,6 +116,8 @@ class LoadThread(threading.Thread):
     self.ip = ""
     self.port = 4001
     self.socket = sock
+    self.loadAverage = 0
+    self.n = 1
 
   def run(self):
     while (True):
@@ -136,7 +138,15 @@ class LoadThread(threading.Thread):
       self.load = dataRecvJson['load']
       self.port = dataRecvJson['port']
       self.ip = dataRecvJson['ip']
+        
+      fname = "serverLoad_"+str(self.port)
 
+      self.loadAverage = ((float(self.loadAverage)*float(self.n)) + float(self.load)) / (float(self.n+1))
+      self.n += 1
+      
+      f=open(fname, "a+")
+      f.write(str(self.loadAverage)+"\n")
+      f.close()
       time.sleep(0.001)
 
     self.socket.close()

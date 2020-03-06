@@ -1,22 +1,32 @@
 import socket
 import time
+from datetime import datetime
 import json
+import os
 
+PID = os.getpid()
 LOCALHOST = "127.0.0.1"
 PORT = 8081
 
 packetsSent = 0
+priority = 2
+
+RTTFilename = "RTTClient"+str(PID)
+
 
 while (True):
+    
+    startTime = datetime.now()  # Get time in milliseconds
+
     clientSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     clientSock.connect((LOCALHOST, PORT))
 
     connectMsg = '{ \
-                    "priority": 2, \
+                    "priority": '+str(priority)+', \
                     "message": "Request to connect" \
                   }'
     msg = '{ \
-            "priority": 2, \
+            "priority": '+str(priority)+', \
             "message": "This is my message" \
            }'
 
@@ -41,6 +51,13 @@ while (True):
     dataRecv = serverSock.recv(1024)
     print("C: Received from server: %s" % (dataRecv.decode()))
     serverSock.close()
+
+    endTime = datetime.now()  # Get end time
+    dt = endTime - startTime
+    roundTripTime = (dt.days * 24 * 60 * 60 + dt.seconds) * 1000 + dt.microseconds / 1000.0
+    f=open(RTTFilename, "a+")
+    f.write(str(priority)+","+str(roundTripTime)+"\n")
+    f.close()
 
     packetsSent += 1
     print("C: Packets successfully transmitted: %d" % (packetsSent))
