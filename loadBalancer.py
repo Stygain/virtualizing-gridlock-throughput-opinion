@@ -323,4 +323,5 @@ if __name__ == "__main__":
   if (args.algo != 'ROUND_ROBIN' and args.algo != 'LEAST_CONNECTIONS'):
     print("Algorithm not recognized.")
     sys.exit(1)
+  print("Algorithm to use: " + args.algo)
   main(args)
