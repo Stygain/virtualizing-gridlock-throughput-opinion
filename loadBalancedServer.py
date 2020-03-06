@@ -36,7 +36,7 @@ class LoadBalancerCommThread(threading.Thread):
     #self.reqSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     #self.reqSocket.bind((LOCALHOST, LB_PORT))
     #self.reqSocket.connect((LOCALHOST, LB_PORT))
-    HOST="10.0.0.1"
+    HOST="127.0.0.1"
     self.reqSocket.connect((HOST, LB_PORT))
     self.threadSafePrint("S: LB comm started on " + str(HOST) + ":" + str(LB_PORT))
     self.clientCommPort = clientCommPort

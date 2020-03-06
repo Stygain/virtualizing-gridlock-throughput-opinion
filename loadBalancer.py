@@ -103,7 +103,7 @@ class QueueThread(threading.Thread):
             queue.remove(client)
         finally:
           queueMutex.release()
-      time.sleep(2)
+      time.sleep(0.001)
 
 
 # Spawn thread that monitors the load of an individual server
@@ -137,7 +137,7 @@ class LoadThread(threading.Thread):
       self.port = dataRecvJson['port']
       self.ip = dataRecvJson['ip']
 
-      time.sleep(0.2)
+      time.sleep(0.001)
 
     self.socket.close()
 
@@ -258,7 +258,7 @@ class MasterClientThread(threading.Thread):
     while (True):
       if (currentClients < ALLOWED_CLIENTS):
         self.clientSock, self.clientAddr = self.reqSocket.accept()
-        self.threadSafePrint("LB: Connected to :" + str(self.clientAddr[0]) + ":" + str(self.clientAddr[1]))
+        self.threadSafePrint("LB: Connected to: " + str(self.clientAddr[0]) + ":" + str(self.clientAddr[1]))
         #thread = threading.Thread(target=self.handleClient, args=(self.clientSock, currentClientsCallback))
         clientThread = ClientThread(self.clientSock, currentClientsCallback)
         currentClientsMutex.acquire()
