@@ -78,6 +78,7 @@ class LoadBalancerCommThread(threading.Thread):
       loadMsg = '{ \
                    "load": ' + str(currentLoad) + ', \
                    "port": ' + str(self.clientCommPort) + ', \
+                   "max": ' + str(args.ccount) + ', \
                    "ip": "' + self.ip + '" \
                  }'
       self.reqSocket.send(bytes(loadMsg, 'UTF-8'))
