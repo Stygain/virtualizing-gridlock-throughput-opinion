@@ -3,7 +3,9 @@ import time
 from datetime import datetime
 import json
 import os
+import random
 
+random.seed(None)
 PID = os.getpid()
 LOCALHOST = "127.0.0.1"
 PORT = 8081
@@ -15,11 +17,13 @@ RTTFilename = "RTTClient"+str(PID)
 
 
 while (True):
-    
+
     startTime = datetime.now()  # Get time in milliseconds
 
     clientSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     clientSock.connect((LOCALHOST, PORT))
+
+    priority = random.randrange(10) + 1
 
     connectMsg = '{ \
                     "priority": '+str(priority)+', \
@@ -43,7 +47,7 @@ while (True):
     # Disconnect, connect to new port
     clientSock.close()
 
-    time.sleep(0.1)
+    #time.sleep(0.1)
     serverSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     serverSock.connect((dataRecvJson['ip'], int(dataRecvJson['port'])))
     serverSock.sendall(bytes(msg, 'UTF-8'))
@@ -67,4 +71,7 @@ while (True):
     #print("Received: %s" % (dataRecv.decode()))
 
     #secondSock.close()
-    time.sleep(2) # TODO add random sleep
+    #time.sleep(2) # TODO add random sleep
+    randVal = random.random()
+    #print("RANDVAL: " + str(randVal))
+    time.sleep(randVal)
