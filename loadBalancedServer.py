@@ -111,6 +111,7 @@ class ClientCommThread(threading.Thread):
       clientSendMutex.acquire()
       try:
         randVal = random.random()
+        randVal = randVal % 0.5
         #print("RANDVAL: " + str(randVal))
         time.sleep(randVal)
         client.send(data) # Echo data back to client
