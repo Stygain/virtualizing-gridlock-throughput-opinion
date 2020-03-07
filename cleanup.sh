@@ -2,7 +2,7 @@
 
 rm serverLoad*
 rm RTT*
-rm averageT*
+rm avgT*
 
 rm 1.csv
 rm 2.csv
