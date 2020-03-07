@@ -29,7 +29,7 @@ connectedClients = 0    # Number of client currently connected to load balancer
 LOCALHOST = ""
 LB_PORT = 4000
 CLIENT_PORT = 8081  # Port clients communicate with load balancer on
-ALLOWED_CLIENTS = 5     # Number of clients load balancer will handle at a time
+ALLOWED_CLIENTS = 50     # Number of clients load balancer will handle at a time
 
 totalClientsServed = 0
 currentClients = 0
@@ -168,10 +168,10 @@ class LoadThread(threading.Thread):
       #print("self.maximum")
       #print(self.maximum)
       self.ip = dataRecvJson['ip']
-        
+
       self.loadAverage = ((float(self.loadAverage)*float(self.n)) + float(self.load)) / (float(self.n+1))
       self.n += 1
-      if ((int(time.time() - self.start_time)) > 1):  
+      if ((int(time.time() - self.start_time)) > 1):
         self.start_time = time.time()   # Reset timer
         fname = "serverLoad_"+str(self.port)
 
