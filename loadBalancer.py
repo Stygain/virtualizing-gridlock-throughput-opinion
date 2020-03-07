@@ -143,6 +143,7 @@ class LoadThread(threading.Thread):
     self.socket = sock
     self.loadAverage = 0
     self.n = 1
+    self.start_time = time.time()
     self.maximum = 0
 
   def run(self):
@@ -168,14 +169,15 @@ class LoadThread(threading.Thread):
       #print(self.maximum)
       self.ip = dataRecvJson['ip']
         
-      fname = "serverLoad_"+str(self.port)
-
       self.loadAverage = ((float(self.loadAverage)*float(self.n)) + float(self.load)) / (float(self.n+1))
       self.n += 1
-      
-      f=open(fname, "a+")
-      f.write(str(self.loadAverage)+"\n")
-      f.close()
+      if ((int(time.time() - self.start_time)) > 1):  
+        self.start_time = time.time()   # Reset timer
+        fname = "serverLoad_"+str(self.port)
+
+        f=open(fname, "a+")
+        f.write(str(self.loadAverage)+"\n")
+        f.close()
       time.sleep(0.001)
 
     self.socket.close()
