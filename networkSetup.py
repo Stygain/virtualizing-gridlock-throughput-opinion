@@ -34,3 +34,8 @@ for i in range(args.clientCount):
     #subprocess.call(execString)
     os.system(execString)
     time.sleep(0.2)
+
+time.sleep(120)     # Run for 2 minutes
+killString = "killall python3"
+os.system(killString)
+
