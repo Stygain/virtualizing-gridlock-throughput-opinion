@@ -169,9 +169,10 @@ class LoadThread(threading.Thread):
       #print(self.maximum)
       self.ip = dataRecvJson['ip']
 
-      self.loadAverage = ((float(self.loadAverage)*float(self.n)) + float(self.load)) / (float(self.n+1))
+      loadPercentage = float(self.load) / float(self.maximum)
+      self.loadAverage = ((float(self.loadAverage)*float(self.n)) + float(loadPercentage)) / (float(self.n+1))
       self.n += 1
-      if ((int(time.time() - self.start_time)) > 1):
+      if ((int(time.time() - self.start_time)) > 0.5):
         self.start_time = time.time()   # Reset timer
         fname = "serverLoad_"+str(self.port)
 
@@ -302,7 +303,7 @@ class MasterClientThread(threading.Thread):
     self.reqSocket.listen(1)
 
     while (True):
-      if ((int(time.time() - self.startTime)) > 1):
+      if ((int(time.time() - self.startTime)) > 0.5):
         self.startTime = time.time()  # Reset timer
         throughput = float(totalClientsServed) / float(time.time() - self.masterStartTime)
         f=open(fname, "a+")
