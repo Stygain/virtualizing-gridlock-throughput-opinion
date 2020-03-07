@@ -5,6 +5,7 @@ from _thread import *
 import threading
 import json
 import time
+import random
 
 # Main thread keeps a socket open and appends to the list
 LOCALHOST = ""
@@ -109,7 +110,9 @@ class ClientCommThread(threading.Thread):
         break
       clientSendMutex.acquire()
       try:
-        time.sleep(1) # TODO use random value here
+        randVal = random.random()
+        #print("RANDVAL: " + str(randVal))
+        time.sleep(randVal)
         client.send(data) # Echo data back to client
       finally:
         clientSendMutex.release()
@@ -146,6 +149,7 @@ def main(args):
   cComm.start()
 
 if __name__ == "__main__":
+  random.seed(None)
   parser = argparse.ArgumentParser()
   #parser.add_argument('-lbport', type=int, help='Port to connect to load balancer on')
   parser.add_argument('-cport', type=int, required=True, help='Port to listen for clients on')
