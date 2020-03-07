@@ -31,7 +31,7 @@ LB_PORT = 4000
 CLIENT_PORT = 8081  # Port clients communicate with load balancer on
 ALLOWED_CLIENTS = 5     # Number of clients load balancer will handle at a time
 
-
+totalClientsServed = 0
 currentClients = 0
 currentClientsMutex = threading.Lock()
 
@@ -283,6 +283,9 @@ class MasterClientThread(threading.Thread):
     self.reqSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     self.reqSocket.bind((LOCALHOST, CLIENT_PORT))
     self.threadSafePrint("LB: Listening for clients on " + str(LOCALHOST) + ":" + str(CLIENT_PORT))
+    self.startTime = time.time()
+    self.masterStartTime = self.startTime
+    self.n = 0
 
   def threadSafePrint(self, msg):
     print(msg, flush=True)
@@ -293,11 +296,21 @@ class MasterClientThread(threading.Thread):
   def run(self):
     global currentClients
     global currentClientsMutex
+    global totalClientsServed
+    fname = "avgThroughput"
 
     self.reqSocket.listen(1)
 
     while (True):
+      if ((int(time.time() - self.startTime)) > 1):
+        self.startTime = time.time()  # Reset timer
+        throughput = float(totalClientsServed) / float(time.time() - self.masterStartTime)
+        f=open(fname, "a+")
+        f.write(str(throughput)+"\n")
+        f.close()
+
       if (currentClients < ALLOWED_CLIENTS):
+        totalClientsServed += 1
         self.clientSock, self.clientAddr = self.reqSocket.accept()
         self.threadSafePrint("LB: Connected to: " + str(self.clientAddr[0]) + ":" + str(self.clientAddr[1]))
         #thread = threading.Thread(target=self.handleClient, args=(self.clientSock, currentClientsCallback))
